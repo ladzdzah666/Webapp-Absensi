@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Save, Check, AlertCircle, Compass, Loader } from 'lucide-react';
+import React, { useState } from 'react';
+import { MapPin, Save, CheckCircle2, AlertTriangle, Compass, Loader2 } from 'lucide-react';
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 const customIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
   iconSize: [25, 41],
   iconAnchor: [12, 41],
@@ -29,8 +29,8 @@ function LocationMarker({ position, setPosition }: { position: [number, number];
       eventHandlers={{
         dragend: (e) => {
           const marker = e.target;
-          const position = marker.getLatLng();
-          setPosition([position.lat, position.lng]);
+          const pos = marker.getLatLng();
+          setPosition([pos.lat, pos.lng]);
         },
       }}
     />
@@ -39,7 +39,7 @@ function LocationMarker({ position, setPosition }: { position: [number, number];
 
 function MapUpdater({ center }: { center: [number, number] }) {
   const map = useMap();
-  useEffect(() => {
+  React.useEffect(() => {
     map.setView(center, map.getZoom());
   }, [center, map]);
   return null;
@@ -62,32 +62,15 @@ export const LocationSettingsForm: React.FC<LocationSettingsFormProps> = ({
   success,
   loading,
 }) => {
-  // Keep track of the original location settings to check if changes were made
-  const [originalSettings] = useState({
-    latitude: locationSettings.latitude,
-    longitude: locationSettings.longitude,
-    radius: locationSettings.radius
-  });
-  const [noChangesMessage, setNoChangesMessage] = useState('');
   const [gettingLocation, setGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState('');
 
-  // Check if location settings have been changed
-  const hasLocationChanged = () => {
-    return (
-      originalSettings.latitude !== locationSettings.latitude ||
-      originalSettings.longitude !== locationSettings.longitude ||
-      originalSettings.radius !== locationSettings.radius
-    );
-  };
-
-  // Function to get current device location
   const getCurrentLocation = () => {
     setGettingLocation(true);
     setLocationError('');
 
     if (!navigator.geolocation) {
-      setLocationError('Geolokasi tidak didukung oleh browser ini');
+      setLocationError('Geolokasi tidak didukung oleh peramban ini');
       setGettingLocation(false);
       return;
     }
@@ -95,253 +78,223 @@ export const LocationSettingsForm: React.FC<LocationSettingsFormProps> = ({
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        setLocationSettings({
-          ...locationSettings,
+        setLocationSettings(prev => ({
+          ...prev,
           latitude,
           longitude
-        });
+        }));
         setGettingLocation(false);
       },
-      (error) => {
-        let errorMessage = 'Gagal mendapatkan lokasi';
-        
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = 'Izin akses lokasi ditolak. Mohon izinkan akses lokasi pada browser Anda.';
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = 'Informasi lokasi tidak tersedia saat ini. Silakan coba lagi nanti.';
-            break;
-          case error.TIMEOUT:
-            errorMessage = 'Waktu permintaan lokasi habis. Silakan coba lagi.';
-            break;
-          default:
-            errorMessage = `Terjadi kesalahan: ${error.message}`;
+      (err) => {
+        let errMsg = 'Gagal mengambil koordinat saat ini';
+        if (err.code === err.PERMISSION_DENIED) {
+          errMsg = 'Izin akses lokasi ditolak. Aktifkan izin lokasi pada browser.';
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          errMsg = 'Informasi sinyal GPS lokasi tidak tersedia.';
+        } else if (err.code === err.TIMEOUT) {
+          errMsg = 'Waktu permintaan lokasi GPS habis.';
         }
-        
-        setLocationError(errorMessage);
+        setLocationError(errMsg);
         setGettingLocation(false);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
-  // Handle form submission with validation
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Check if any changes were made
-    if (!hasLocationChanged()) {
-      setNoChangesMessage('Lokasi kantor belum diubah. Silakan ubah lokasi terlebih dahulu.');
-      return;
-    }
-    
-    // Clear any previous message
-    setNoChangesMessage('');
-    
-    // Proceed with the provided update handler
-    handleLocationUpdate(e);
+  const setRadiusPreset = (val: number) => {
+    setLocationSettings(prev => ({ ...prev, radius: val }));
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-gray-800/80 sm:bg-gray-800 rounded-2xl sm:rounded-xl shadow-2xl sm:shadow-md p-3 sm:p-4 border-0 sm:border border-gray-700 relative before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-tr before:from-blue-500/20 before:via-indigo-500/10 before:to-purple-500/20 before:z-0 sm:before:hidden">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-gray-300">
-            <MapPin className="w-5 h-5" />
-            <span className="text-sm">Klik pada peta atau geser penanda untuk menentukan lokasi.</span>
+      {/* Tips Bar */}
+      <div className="rounded-2xl glass-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-amber-500/20">
+        <div className="flex items-center gap-3 text-slate-300 text-xs sm:text-sm">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center flex-shrink-0">
+            <MapPin className="w-4 h-4" />
           </div>
+          <span>Geser pin penanda emas pada peta atau klik langsung untuk memposisikan titik pusat kantor.</span>
         </div>
-        
-        {locationError && (
-          <div className="mt-3 text-sm text-red-300 bg-red-900/20 p-2 rounded border border-red-800/30">
-            <AlertCircle className="h-4 w-4 inline mr-1" />
-            {locationError}
-          </div>
-        )}
-        
-        {noChangesMessage && (
-          <div className="mt-3 text-sm text-yellow-300 bg-yellow-900/20 p-2 rounded border border-yellow-800/30">
-            <AlertCircle className="h-4 w-4 inline mr-1" />
-            {noChangesMessage}
-          </div>
-        )}
+
+        <button
+          type="button"
+          onClick={getCurrentLocation}
+          disabled={gettingLocation}
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-amber-300 bg-amber-500/15 border border-amber-500/30 hover:bg-amber-500/25 active:scale-95 transition-all disabled:opacity-50"
+        >
+          {gettingLocation ? (
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span>Mencari Sinyal GPS...</span>
+            </>
+          ) : (
+            <>
+              <Compass className="w-3.5 h-3.5" />
+              <span>Gunakan Lokasi Perangkat Ini</span>
+            </>
+          )}
+        </button>
       </div>
 
-      <div className="bg-gray-800/80 sm:bg-gray-800 rounded-2xl sm:rounded-xl shadow-2xl sm:shadow-md overflow-hidden border-0 sm:border border-gray-700 relative before:absolute before:inset-0 before:rounded-2xl before:bg-gradient-to-tr before:from-blue-500/20 before:via-indigo-500/10 before:to-purple-500/20 before:z-0 sm:before:hidden">
-        <div className="p-3 sm:p-6 relative z-10">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Latitude
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="any"
-                    value={locationSettings.latitude || ''}
-                    onChange={(e) => setLocationSettings({ ...locationSettings, latitude: parseFloat(e.target.value) || 0 })}
-                    className="block w-full pl-4 pr-10 py-2.5 rounded-lg bg-gray-700 border border-gray-600 text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                    placeholder="Masukkan latitude..."
-                    required
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <span className="text-gray-400 text-sm">°N/S</span>
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">Rentang: -90° hingga 90°</p>
-              </div>
-
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Longitude
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="any"
-                    value={locationSettings.longitude || ''}
-                    onChange={(e) => setLocationSettings({ ...locationSettings, longitude: parseFloat(e.target.value) || 0 })}
-                    className="block w-full pl-4 pr-10 py-2.5 rounded-lg bg-gray-700 border border-gray-600 text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                    placeholder="Masukkan longitude..."
-                    required
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <span className="text-gray-400 text-sm">°E/W</span>
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">Rentang: -180° hingga 180°</p>
-              </div>
-
-              <div className="relative">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Radius
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={locationSettings.radius || ''}
-                    onChange={(e) => setLocationSettings({ ...locationSettings, radius: parseInt(e.target.value) || 1 })}
-                    className="block w-full pl-4 pr-16 py-2.5 rounded-lg bg-gray-700 border border-gray-600 text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 placeholder-gray-400"
-                    placeholder="Masukkan radius..."
-                    min="1"
-                    required
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <span className="text-gray-400 text-sm">meter</span>
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-gray-400">Minimal: 1 meter</p>
-              </div>
-            </div>
-
-            <div className="relative h-[220px] xs:h-[260px] sm:h-[400px] rounded-xl overflow-hidden border border-gray-600 shadow-lg">
-              {locationSettings.latitude !== 0 && locationSettings.longitude !== 0 ? (
-                <MapContainer
-                  center={[locationSettings.latitude, locationSettings.longitude]}
-                  zoom={16}
-                  style={{ height: '100%', width: '100%' }}
-                  scrollWheelZoom={false}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  />
-                  <LocationMarker
-                    position={[locationSettings.latitude, locationSettings.longitude]}
-                    setPosition={(pos: [number, number]) => setLocationSettings({ ...locationSettings, latitude: pos[0], longitude: pos[1] })}
-                  />
-                  <MapUpdater center={[locationSettings.latitude, locationSettings.longitude]} />
-                  <Circle
-                    center={[locationSettings.latitude, locationSettings.longitude]}
-                    radius={locationSettings.radius > 0 ? locationSettings.radius : 100}
-                    pathOptions={{ color: '#7c3aed', fillColor: '#7c3aed', fillOpacity: 0.2, weight: 2 }}
-                  />
-                </MapContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-gray-400">
-                  Lokasi tidak valid. Menunggu lokasi perangkat...
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-4">
-              {error && (
-                <div className="animate-fade-in bg-red-900/30 border border-red-900/50 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <AlertCircle className="h-5 w-5 text-red-400" aria-hidden="true" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-300">Terjadi Kesalahan</h3>
-                      <div className="mt-1 text-sm text-red-200">
-                        {error}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {success && (
-                <div className="animate-fade-in bg-green-900/30 border border-green-900/50 rounded-lg p-4">
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0">
-                      <Check className="h-5 w-5 text-green-400" aria-hidden="true" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-green-300">Berhasil Disimpan</h3>
-                      <div className="mt-1 text-sm text-green-200">
-                        {success}
-                      </div>
-                      <div className="mt-2 text-sm text-green-300">
-                        <ul className="list-disc list-inside space-y-1">
-                          <li>Latitude: {typeof locationSettings.latitude === 'number' ? locationSettings.latitude.toFixed(6) : '0.000000'}°</li>
-                          <li>Longitude: {typeof locationSettings.longitude === 'number' ? locationSettings.longitude.toFixed(6) : '0.000000'}°</li>
-                          <li>Radius: {locationSettings.radius} meter</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-0 justify-between mt-4">
-              <button
-                type="button"
-                onClick={getCurrentLocation}
-                disabled={gettingLocation}
-                className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-lg text-blue-100 bg-indigo-600/80 hover:bg-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {gettingLocation ? (
-                  <>
-                    <Loader className="w-5 h-5 mr-2 animate-spin" />
-                    Mendapatkan Lokasi...
-                  </>
-                ) : (
-                  <>
-                    <Compass className="w-5 h-5 mr-2" />
-                    Gunakan Lokasi Saat Ini
-                  </>
-                )}
-              </button>
-              
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-blue-600 text-white w-full sm:w-auto px-6 py-2 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Save className="w-5 h-5 mr-2" />
-                {loading ? 'Menyimpan...' : 'Simpan Lokasi'}
-              </button>
-            </div>
-          </form>
+      {locationError && (
+        <div className="p-4 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-200 text-xs sm:text-sm flex items-center gap-3">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+          <span>{locationError}</span>
         </div>
+      )}
+
+      {/* Main Settings Card */}
+      <div className="rounded-2xl glass-card overflow-hidden p-4 sm:p-6 border border-amber-500/20">
+        <form onSubmit={handleLocationUpdate} className="space-y-6">
+          {/* Coordinates & Radius Inputs */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+                Latitude (Garis Lintang)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="any"
+                  value={locationSettings.latitude || ''}
+                  onChange={(e) => setLocationSettings({ ...locationSettings, latitude: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all font-mono"
+                  placeholder="-6.200000"
+                  required
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-amber-300/70 font-mono">°N/S</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+                Longitude (Garis Bujur)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="any"
+                  value={locationSettings.longitude || ''}
+                  onChange={(e) => setLocationSettings({ ...locationSettings, longitude: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all font-mono"
+                  placeholder="106.816666"
+                  required
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-amber-300/70 font-mono">°E/W</span>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider">
+                  Radius Geofence
+                </label>
+                <div className="flex gap-1">
+                  {[50, 100, 200, 500].map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRadiusPreset(r)}
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded ${
+                        locationSettings.radius === r
+                          ? 'bg-amber-500 text-slate-950 font-bold'
+                          : 'bg-islamic-950 text-slate-400 hover:text-white border border-amber-500/20'
+                      }`}
+                    >
+                      {r}m
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="1"
+                  max="10000"
+                  value={locationSettings.radius || ''}
+                  onChange={(e) => setLocationSettings({ ...locationSettings, radius: parseInt(e.target.value) || 1 })}
+                  className="w-full px-4 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all font-mono"
+                  placeholder="100"
+                  required
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-amber-300 font-medium">Meter</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Map */}
+          <div className="relative h-[280px] sm:h-[400px] rounded-2xl overflow-hidden border border-amber-500/25 shadow-xl">
+            {locationSettings.latitude !== 0 && locationSettings.longitude !== 0 ? (
+              <MapContainer
+                center={[locationSettings.latitude, locationSettings.longitude]}
+                zoom={16}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom={true}
+              >
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                />
+                <LocationMarker
+                  position={[locationSettings.latitude, locationSettings.longitude]}
+                  setPosition={(pos: [number, number]) => setLocationSettings(prev => ({ ...prev, latitude: pos[0], longitude: pos[1] }))}
+                />
+                <MapUpdater center={[locationSettings.latitude, locationSettings.longitude]} />
+                <Circle
+                  center={[locationSettings.latitude, locationSettings.longitude]}
+                  radius={locationSettings.radius > 0 ? locationSettings.radius : 100}
+                  pathOptions={{ color: '#d4af37', fillColor: '#10b981', fillOpacity: 0.25, weight: 2 }}
+                />
+              </MapContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-amber-200 bg-islamic-950">
+                <Compass className="w-8 h-8 text-amber-400 mb-2 animate-spin" />
+                <p className="text-sm">Menyiapkan peta geofence kantor...</p>
+              </div>
+            )}
+          </div>
+
+          {/* Notifications */}
+          {error && (
+            <div className="p-4 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-200 text-sm flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {success && (
+            <div className="p-4 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-200 text-sm flex items-center gap-3">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+              <div>
+                <p className="font-bold">{success}</p>
+                <p className="text-xs text-emerald-300/80 mt-0.5">
+                  Latitude: {locationSettings.latitude.toFixed(6)}°, Longitude: {locationSettings.longitude.toFixed(6)}°, Radius: {locationSettings.radius} meter
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Save Button */}
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-slate-950 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 hover:from-amber-300 hover:to-yellow-400 shadow-lg shadow-amber-950/50 active:scale-95 transition-all disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Menyimpan Titik Lokasi...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>Simpan Perubahan Titik Kantor</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

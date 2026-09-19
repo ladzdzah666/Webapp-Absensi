@@ -5,10 +5,18 @@ class OfficeLocationModel {
     const [location] = await db.query(
       "SELECT id, lat, lng, radius FROM office_location LIMIT 1"
     );
-    return location[0] || {
-      lat: -7.446754760104717,
-      lng: 109.24140415854745,
-      radius: 100
+    if (!location[0]) {
+      return {
+        lat: -7.446754760104717,
+        lng: 109.24140415854745,
+        radius: 100
+      };
+    }
+    return {
+      id: location[0].id,
+      lat: Number(location[0].lat),
+      lng: Number(location[0].lng),
+      radius: Number(location[0].radius)
     };
   }
 

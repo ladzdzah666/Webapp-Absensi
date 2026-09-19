@@ -4,43 +4,40 @@ import { Attendance, AttendanceSchedule } from '../types';
 import UserLayout from '../components/user/UserLayout';
 import LocationMap from '../components/user/LocationMap';
 import LocationStatus from '../components/user/LocationStatus';
-import AttendanceButtons from '../components/user/AttendanceButtons';
 import TodayStatus from '../components/user/TodayStatus';
 import { api } from '../services/api';
-import { format, isToday, parseISO, isSameDay } from 'date-fns';
-import { AlertCircle, CheckCircle, X, Info, Clock } from 'lucide-react';
+import { format, isToday, parseISO } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
+import {
+  AlertCircle, CheckCircle2, X, Info, Clock, Sparkles,
+  MapPin, LogOut, Sun, Moon, AlertTriangle, ChevronDown, ChevronUp
+} from 'lucide-react';
 
 /**
- * UserDashboard: Halaman utama untuk pengguna biasa (non-admin).
- * Menampilkan komponen untuk melakukan absensi dan melihat status kehadiran hari ini.
+ * UserDashboard: Mobile-first attendance dashboard.
+ * Tombol Presensi langsung terlihat saat buka — prioritas utama.
  */
 export default function UserDashboard() {
-  // State untuk data pengguna dan kehadiran
   const { user } = useAuth();
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [info, setInfo] = useState('');
-  
-  // State untuk lokasi dan jarak
+  const [mapExpanded, setMapExpanded] = useState(false);
+
+  // State Lokasi & Geofence
   const [currentLocation, setCurrentLocation] = useState<GeolocationPosition | null>(null);
   const [locationError, setLocationError] = useState<GeolocationPositionError | null>(null);
-  const [officeLocation, setOfficeLocation] = useState({
-    lat: 0,
-    lng: 0,
-    radius: 100
-  });
+  const [officeLocation, setOfficeLocation] = useState({ lat: 0, lng: 0, radius: 100 });
   const [officeDistance, setOfficeDistance] = useState<number | null>(null);
-  const [today] = useState(new Date());
-  
-  // State untuk notifikasi
+
+  // Notifikasi toast
   const [activeNotification, setActiveNotification] = useState<{id: string; type: 'error' | 'success' | 'info'; message: string} | null>(null);
   const [notificationTimeout, setNotificationTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const [scheduleTime, setScheduleTime] = useState<AttendanceSchedule | null>(null);
 
-  // Mengambil data saat komponen dimuat
   useEffect(() => {
     fetchAttendance();
     startLocationTracking();
@@ -48,7 +45,6 @@ export default function UserDashboard() {
     fetchSchedule();
   }, []);
 
-  // Menghitung jarak ke kantor saat lokasi berubah
   useEffect(() => {
     if (currentLocation && officeLocation.lat !== 0 && officeLocation.lng !== 0) {
       const distance = calculateDistance(
@@ -65,7 +61,6 @@ export default function UserDashboard() {
     }
   }, [currentLocation, officeLocation]);
 
-  // Menampilkan notifikasi saat ada error
   useEffect(() => {
     if (error) {
       addNotification('error', error);
@@ -73,7 +68,6 @@ export default function UserDashboard() {
     }
   }, [error]);
 
-  // Menampilkan notifikasi saat ada pesan sukses
   useEffect(() => {
     if (success) {
       addNotification('success', success);
@@ -81,7 +75,6 @@ export default function UserDashboard() {
     }
   }, [success]);
 
-  // Menampilkan notifikasi saat ada pesan info
   useEffect(() => {
     if (info) {
       addNotification('info', info);
@@ -89,11 +82,6 @@ export default function UserDashboard() {
     }
   }, [info]);
 
-  /**
-   * Menambahkan notifikasi baru
-   * @param type Tipe notifikasi: error, success, atau info
-   * @param message Pesan notifikasi
-   */
   const addNotification = (type: 'error' | 'success' | 'info', message: string) => {
     if (notificationTimeout) {
       clearTimeout(notificationTimeout);
@@ -104,14 +92,11 @@ export default function UserDashboard() {
     
     const timeout = setTimeout(() => {
       setActiveNotification(null);
-    }, 3000);
+    }, 3500);
     
     setNotificationTimeout(timeout);
   };
 
-  /**
-   * Menghapus notifikasi yang aktif
-   */
   const removeNotification = () => {
     setActiveNotification(null);
     if (notificationTimeout) {
@@ -120,126 +105,93 @@ export default function UserDashboard() {
     }
   };
 
-  /**
-   * Mengambil data kehadiran pengguna dari API
-   */
   const fetchAttendance = async () => {
     try {
       const data = await api.attendance.getUserAttendance();
       setAttendance(data);
       
-      // Menampilkan pesan selamat datang jika belum absen hari ini
       if (!hasCheckedInToday()) {
         const timeNow = format(new Date(), 'HH:mm');
-        setInfo(`Selamat datang, ${user?.full_name || ''}! Waktu saat ini: ${timeNow}`);
+        setInfo(`Assalamu'alaikum, ${user?.full_name || ''}! Waktu saat ini: ${timeNow} WIB`);
       }
-    } catch (error: any) {
-      setError(error.message);
+    } catch (err: any) {
+      setError(err.message || 'Gagal memuat catatan kehadiran');
     }
   };
 
-  /**
-   * Memulai pelacakan lokasi pengguna
-   */
   const startLocationTracking = () => {
     if (!navigator.geolocation) {
-      setError('Browser Anda tidak mendukung geolokasi. Mohon gunakan browser modern seperti Chrome, Firefox, atau Safari.');
+      setError('Peramban Anda belum mendukung fitur geolokasi GPS.');
       return;
     }
 
-    // Cek apakah permissions API tersedia
     if (navigator.permissions) {
       navigator.permissions.query({ name: 'geolocation' }).then((result) => {
         if (result.state === 'denied') {
-          setError('Akses lokasi ditolak. Mohon izinkan akses lokasi di pengaturan browser Anda.');
-          return;
+          setError('Akses GPS ditolak. Mohon aktifkan izin lokasi di pengaturan browser.');
         }
       });
     }
 
     const options = {
       enableHighAccuracy: true,
-      timeout: 10000,        // 10 detik
-      maximumAge: 5000      // 5 detik
+      timeout: 10000,
+      maximumAge: 4000
     };
 
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          setCurrentLocation(position);
-          setLocationError(null);
-        // Log sukses untuk debugging
-        console.log('Lokasi berhasil didapatkan:', {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy
-        });
-        },
-        (error) => {
-          setLocationError(error);
-          let message = 'Error lokasi: ';
-          
-          switch(error.code) {
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        setCurrentLocation(position);
+        setLocationError(null);
+      },
+      (err) => {
+        setLocationError(err);
+        let message = 'Kendala GPS: ';
+        switch(err.code) {
           case GeolocationPositionError.PERMISSION_DENIED:
-            message += 'Akses lokasi ditolak. Mohon izinkan akses lokasi di pengaturan browser Anda.';
-              break;
+            message += 'Izin akses lokasi tidak diberikan. Aktifkan izin lokasi Anda.';
+            break;
           case GeolocationPositionError.POSITION_UNAVAILABLE:
-            message += 'Lokasi tidak tersedia. Pastikan GPS aktif dan Anda berada di area dengan sinyal yang baik.';
-              break;
+            message += 'Sinyal GPS tidak terdeteksi. Pastikan Anda berada di area terbuka.';
+            break;
           case GeolocationPositionError.TIMEOUT:
-            message += 'Waktu permintaan lokasi habis. Mohon coba lagi atau periksa koneksi internet Anda.';
-              break;
-            default:
-              message += error.message;
-          }
-          
-          setError(message);
-        // Log error untuk debugging
-        console.error('Geolocation error:', {
-          code: error.code,
-          message: error.message
-        });
+            message += 'Waktu pencarian sinyal GPS habis. Coba segarkan halaman.';
+            break;
+          default:
+            message += err.message;
+        }
+        setError(message);
       },
       options
     );
 
-    // Simpan watchId untuk cleanup
     return () => {
       if (watchId) {
         navigator.geolocation.clearWatch(watchId);
-        console.log('Location tracking stopped');
       }
     };
   };
 
-  /**
-   * Mengambil data lokasi kantor dari API
-   */
   const fetchOfficeLocation = async () => {
     try {
       const data = await api.location.get();
       setOfficeLocation(data);
-    } catch (error: any) {
-      setError(error.message);
+    } catch (err: any) {
+      setError(err.message || 'Gagal mengambil data lokasi kantor');
     }
   };
 
-  /**
-   * Mengambil data jadwal dari API
-   */
   const fetchSchedule = async () => {
     try {
       const data = await api.schedule.get();
       setScheduleTime(data);
-    } catch (error: any) {
-      setError(error.message);
+    } catch (err: any) {
+      setError(err.message || 'Gagal mengambil jadwal kerja');
     }
   };
 
-  /**
-   * Menghitung jarak antara dua titik koordinat (dalam meter)
-   */
   const calculateDistance = (point1: { latitude: number; longitude: number }, point2: { latitude: number; longitude: number }): number => {
-    const R = 6371e3; // Radius bumi dalam meter
+    const R = 6371e3; // Radius bumi meter
     const φ1 = toRadians(point1.latitude);
     const φ2 = toRadians(point2.latitude);
     const Δφ = toRadians(point2.latitude - point1.latitude);
@@ -250,66 +202,52 @@ export default function UserDashboard() {
               Math.sin(Δλ/2) * Math.sin(Δλ/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-    return R * c; // Jarak dalam meter
+    return R * c;
   };
 
-  /**
-   * Mengkonversi derajat ke radian
-   */
   const toRadians = (degrees: number): number => {
     return degrees * (Math.PI / 180);
   };
 
-  /**
-   * Memeriksa apakah pengguna berada dalam radius kantor
-   */
   const isWithinOfficeRadius = (): boolean => {
     if (!currentLocation || officeLocation.lat === 0 || officeLocation.lng === 0 || !officeDistance) {
       return false;
     }
-    
     return officeDistance <= officeLocation.radius;
   };
 
-  /**
-   * Memeriksa apakah saat ini dalam rentang waktu check-in
-   */
-  const isWithinCheckInTime = (): boolean => {
-    return true;
+  const getTodayRecord = () => {
+    return attendance.find((record) => {
+      if (!record.check_in_time) return false;
+      try {
+        return isToday(parseISO(record.check_in_time));
+      } catch {
+        return false;
+      }
+    });
   };
 
-  /**
-   * Memeriksa apakah saat ini dalam rentang waktu check-out
-   */
-  const isWithinCheckOutTime = (): boolean => {
-    return true;
-  };
-
-  /**
-   * Memeriksa apakah pengguna sudah melakukan check-in hari ini
-   */
   const hasCheckedInToday = (): boolean => {
-    return true; // Selalu izinkan check-out
+    return !!getTodayRecord();
   };
   
-  /**
-   * Memeriksa apakah pengguna dapat melakukan check-out
-   */
-  const canCheckOut = (): boolean => {
-    return true; // Selalu izinkan check-out
+  const canCheckIn = (): boolean => {
+    return !getTodayRecord();
   };
 
-  /**
-   * Menangani proses absensi masuk (check-in)
-   */
+  const canCheckOut = (): boolean => {
+    const todayRecord = getTodayRecord();
+    return !!todayRecord && !todayRecord.check_out_time;
+  };
+
   const handleCheckIn = async () => {
     if (!currentLocation) {
-      setError('Lokasi tidak tersedia. Mohon aktifkan GPS dan izinkan akses lokasi.');
+      setError('Titik lokasi GPS belum terhubung. Mohon aktifkan GPS pada ponsel Anda.');
       return;
     }
     
     if (!isWithinOfficeRadius()) {
-      setError('Anda berada di luar area kantor. Absensi hanya dapat dilakukan di dalam area kantor.');
+      setError('Anda berada di luar area kantor. Presensi hanya dapat dilakukan di dalam radius kantor.');
       return;
     }
     
@@ -320,25 +258,22 @@ export default function UserDashboard() {
         currentLocation.coords.longitude
       );
       await fetchAttendance();
-      setSuccess(`Absensi masuk berhasil pada ${format(new Date(), 'HH:mm')}. Selamat bekerja!`);
-    } catch (error: any) {
-      setError(error.message);
+      setSuccess(`Alhamdulillah! Presensi masuk berhasil dicatat pada ${format(new Date(), 'HH:mm')} WIB. Selamat bertugas dengan penuh berkah.`);
+    } catch (err: any) {
+      setError(err.message || 'Gagal mencatat presensi masuk');
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Menangani proses absensi keluar (check-out)
-   */
   const handleCheckOut = async () => {
     if (!currentLocation) {
-      setError('Lokasi tidak tersedia. Mohon aktifkan GPS dan izinkan akses lokasi.');
+      setError('Titik lokasi GPS belum terhubung. Mohon aktifkan GPS pada ponsel Anda.');
       return;
     }
     
     if (!isWithinOfficeRadius()) {
-      setError('Anda berada di luar area kantor. Absensi hanya dapat dilakukan di dalam area kantor.');
+      setError('Anda berada di luar area kantor. Presensi hanya dapat dilakukan di dalam radius kantor.');
       return;
     }
     
@@ -349,192 +284,307 @@ export default function UserDashboard() {
         currentLocation.coords.longitude
       );
       await fetchAttendance();
-      setSuccess(`Absensi keluar berhasil pada ${format(new Date(), 'HH:mm')}. Terima kasih atas kerja keras Anda hari ini!`);
-    } catch (error: any) {
-      setError(error.message);
+      setSuccess(`Alhamdulillah! Presensi pulang berhasil dicatat pada ${format(new Date(), 'HH:mm')} WIB. Terima kasih atas dedikasi dan kerja keras Anda hari ini.`);
+    } catch (err: any) {
+      setError(err.message || 'Gagal mencatat presensi pulang');
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Mendapatkan style notifikasi berdasarkan tipe
-   */
-  const getNotificationStyle = (type: 'error' | 'success' | 'info') => {
-    switch (type) {
-      case 'error':
-        return 'bg-gradient-to-r from-red-900/90 to-red-800/90 border-red-500 text-red-100';
-      case 'success':
-        return 'bg-gradient-to-r from-green-900/90 to-green-800/90 border-green-500 text-green-100';
-      case 'info':
-        return 'bg-gradient-to-r from-blue-900/90 to-blue-800/90 border-blue-500 text-blue-100';
-      default:
-        return 'bg-gradient-to-r from-gray-900/90 to-gray-800/90 border-gray-500 text-gray-100';
-    }
-  };
+  // --- Derived state for UI ---
+  const isInsideRadius = isWithinOfficeRadius();
+  const isGpsReady = !!currentLocation && !locationError;
+  const todayDone = hasCheckedInToday() && !canCheckOut();
+  const checkInDisabled = !isGpsReady || !isInsideRadius || loading || !canCheckIn();
+  const checkOutDisabled = !isGpsReady || !isInsideRadius || loading || !canCheckOut();
 
-  /**
-   * Mendapatkan ikon notifikasi berdasarkan tipe
-   */
-  const getNotificationIcon = (type: 'error' | 'success' | 'info') => {
-    switch (type) {
-      case 'error':
-        return <AlertCircle className="h-6 w-6 text-red-300" />;
-      case 'success':
-        return <CheckCircle className="h-6 w-6 text-green-300" />;
-      case 'info':
-        return <Info className="h-6 w-6 text-blue-300" />;
-      default:
-        return <Info className="h-6 w-6 text-gray-300" />;
-    }
-  };
+  const gpsStatusColor = !isGpsReady
+    ? 'text-amber-400'
+    : isInsideRadius
+    ? 'text-emerald-400'
+    : 'text-rose-400';
 
-  /**
-   * Komponen untuk menampilkan informasi jadwal
-   */
-  const ScheduleInfo: React.FC<{ schedule: AttendanceSchedule | null }> = ({ schedule }) => {
-    if (!schedule) return null;
-
-    const now = new Date();
-    const currentTime = format(now, 'HH:mm:ss');
-    
-    const isCheckInTime = currentTime >= schedule.check_in_start && currentTime <= schedule.check_in_end;
-    const isCheckOutTime = currentTime >= schedule.check_out_start && currentTime <= schedule.check_out_end;
-    
-    return (
-      <div className="flex flex-wrap gap-4 items-center text-sm">
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isCheckInTime ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
-          <span className="text-gray-400">Masuk:</span>
-          <span className="text-white">{schedule.check_in_start.slice(0, 5)} - {schedule.check_in_end.slice(0, 5)}</span>
-          {isCheckInTime && <span className="text-green-400 text-xs">• Aktif</span>}
-        </div>
-        <div className="h-4 w-px bg-gray-700" />
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isCheckOutTime ? 'bg-blue-400 animate-pulse' : 'bg-gray-400'}`} />
-          <span className="text-gray-400">Pulang:</span>
-          <span className="text-white">{schedule.check_out_start.slice(0, 5)} - {schedule.check_out_end.slice(0, 5)}</span>
-          {isCheckOutTime && <span className="text-blue-400 text-xs">• Aktif</span>}
-        </div>
-      </div>
-    );
-  };
+  const gpsStatusText = locationError
+    ? 'GPS Error'
+    : !currentLocation
+    ? 'Mencari GPS...'
+    : isInsideRadius
+    ? 'Dalam Radius Kantor'
+    : 'Di Luar Radius';
 
   return (
     <UserLayout>
-      <div className="p-4 md:p-6 space-y-6 md:space-y-8 pb-6 relative max-w-7xl mx-auto">
-        {/* Container notifikasi - tetap di tengah layar */}
-        {activeNotification && (
-          <div className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none bg-black/30 backdrop-blur-sm">
-            <div className="max-w-md w-full px-4">
-              <div 
-                className={`${getNotificationStyle(activeNotification.type)} p-4 rounded-xl shadow-2xl flex items-start w-full pointer-events-auto transition-all duration-300 ease-in-out border border-opacity-30`}
-                style={{
-                  animation: 'fadeIn 0.3s forwards, fadeOut 0.3s 2.7s forwards'
-                }}
+      {/* Notifikasi Toast — di paling atas layar */}
+      {activeNotification && (
+        <div className="fixed inset-x-0 top-4 flex justify-center z-[9999] px-4 pointer-events-none">
+          <div
+            className={`max-w-sm w-full p-3.5 rounded-2xl shadow-2xl flex items-start gap-3 pointer-events-auto border backdrop-blur-md animate-fade-in ${
+              activeNotification.type === 'error'
+                ? 'bg-rose-950/95 border-rose-500/50 text-rose-100'
+                : activeNotification.type === 'success'
+                ? 'bg-emerald-950/95 border-emerald-400/50 text-emerald-100'
+                : 'bg-islamic-900/98 border-amber-500/50 text-amber-100'
+            }`}
+          >
+            <div className="flex-shrink-0 mt-0.5">
+              {activeNotification.type === 'error' ? (
+                <AlertCircle className="h-5 w-5 text-rose-400" />
+              ) : activeNotification.type === 'success' ? (
+                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+              ) : (
+                <Info className="h-5 w-5 text-amber-400" />
+              )}
+            </div>
+            <p className="text-xs sm:text-sm font-semibold leading-5 flex-1">{activeNotification.message}</p>
+            <button onClick={removeNotification} className="text-slate-400 hover:text-white flex-shrink-0">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-lg mx-auto lg:max-w-7xl space-y-3 sm:space-y-4 pb-8">
+
+        {/* ── HEADER KOMPAK ── */}
+
+        <div className="glass-card rounded-2xl px-4 py-3 border border-amber-500/20 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex items-center justify-between relative z-10">
+            <div>
+              <p className="text-[10px] text-emerald-300 font-semibold tracking-wider uppercase mb-0.5">Assalamu'alaikum ✨</p>
+              <h1 className="text-sm sm:text-base font-extrabold text-white leading-tight">{user?.full_name || 'Pegawai'}</h1>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {format(new Date(), "EEEE, dd MMM yyyy", { locale: localeId })}
+              </p>
+            </div>
+            <div className="text-right">
+              <div className={`text-[10px] font-bold flex items-center gap-1 justify-end ${gpsStatusColor}`}>
+                <span className={`w-1.5 h-1.5 rounded-full inline-block ${
+                  !isGpsReady ? 'bg-amber-400 animate-pulse' : isInsideRadius ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+                }`} />
+                {gpsStatusText}
+              </div>
+              {officeDistance !== null && (
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Jarak: <strong className={isInsideRadius ? 'text-emerald-300' : 'text-rose-300'}>
+                    {officeDistance > 1000 ? `${(officeDistance/1000).toFixed(1)}km` : `${Math.round(officeDistance)}m`}
+                  </strong>
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── LAYOUT UTAMA ── */}
+        <div className="lg:grid lg:grid-cols-3 lg:gap-6 space-y-3 lg:space-y-0">
+
+          {/* KOLOM KIRI — PRIORITAS MOBILE */}
+          <div className="lg:col-span-2 space-y-3">
+
+            {/* ═══════════════════════════════════════
+                TOMBOL PRESENSI — TAMPIL PALING ATAS
+            ═══════════════════════════════════════ */}
+            <div className="glass-card rounded-2xl overflow-hidden border border-amber-500/30">
+              <div className="px-4 py-2.5 border-b border-amber-500/15 bg-islamic-950/60 flex items-center justify-between">
+                <h2 className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Presensi Hari Ini
+                </h2>
+                {scheduleTime && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                    <Sun className="w-3 h-3 text-amber-400" />
+                    <span>{scheduleTime.check_in_start.slice(0,5)}</span>
+                    <span>–</span>
+                    <Moon className="w-3 h-3 text-emerald-400" />
+                    <span>{scheduleTime.check_out_end.slice(0,5)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 sm:p-4 space-y-3">
+                {/* Status Info */}
+                {todayDone && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                    <Sparkles className="w-4 h-4 shrink-0" />
+                    Alhamdulillah! Presensi hari ini telah selesai.
+                  </div>
+                )}
+                {!isGpsReady && !todayDone && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-medium">
+                    <Clock className="w-4 h-4 animate-spin shrink-0" />
+                    Menghubungkan GPS... Harap tunggu.
+                  </div>
+                )}
+                {isGpsReady && !isInsideRadius && !todayDone && (
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    Di luar area kantor — dekati kantor untuk presensi.
+                  </div>
+                )}
+                {isGpsReady && isInsideRadius && !todayDone && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-medium">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    Dalam area kantor — siap untuk presensi!
+                  </div>
+                )}
+
+                {/* ─── TOMBOL UTAMA BESAR ─── */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* ABSEN MASUK */}
+                  <button
+                    onClick={handleCheckIn}
+                    disabled={checkInDisabled}
+                    id="btn-check-in"
+                    className={`relative group overflow-hidden rounded-2xl font-bold transition-all duration-300 active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-emerald-400/50
+                      flex flex-col items-center justify-center gap-1.5 py-5 sm:py-6 px-3
+                      ${ !checkInDisabled
+                        ? 'bg-gradient-to-b from-emerald-600 to-emerald-800 text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-emerald-700 border border-amber-400/30'
+                        : 'bg-islamic-950/70 text-slate-600 border border-slate-800/80 cursor-not-allowed'
+                      }`}
+                  >
+                    {!checkInDisabled && (
+                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                    )}
+                    {!checkInDisabled && (
+                      <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400" />
+                      </span>
+                    )}
+                    <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-0.5 ${
+                      !checkInDisabled ? 'bg-white/15' : 'bg-slate-800/50'
+                    }`}>
+                      <CheckCircle2 className={`w-5 h-5 sm:w-6 sm:h-6 ${loading && !checkInDisabled ? 'animate-spin' : ''} ${!checkInDisabled ? 'text-amber-300' : 'text-slate-600'}`} />
+                    </div>
+                    <span className="text-sm sm:text-base font-extrabold tracking-wide">
+                      {hasCheckedInToday() ? 'Sudah Masuk' : 'Absen Masuk'}
+                    </span>
+                    <span className={`text-[10px] sm:text-[11px] font-normal ${!checkInDisabled ? 'text-emerald-200/80' : 'text-slate-600'}`}>
+                      {!hasCheckedInToday() ? 'Bismillah • Awali Hari' : '✓ Tercatat'}
+                    </span>
+                  </button>
+
+                  {/* ABSEN PULANG */}
+                  <button
+                    onClick={handleCheckOut}
+                    disabled={checkOutDisabled}
+                    id="btn-check-out"
+                    className={`relative group overflow-hidden rounded-2xl font-bold transition-all duration-300 active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-amber-400/50
+                      flex flex-col items-center justify-center gap-1.5 py-5 sm:py-6 px-3
+                      ${ !checkOutDisabled
+                        ? 'bg-gradient-to-b from-amber-500 to-amber-700 text-slate-950 shadow-lg shadow-amber-950/60 hover:from-amber-400 hover:to-amber-600 border border-amber-300/50'
+                        : 'bg-islamic-950/70 text-slate-600 border border-slate-800/80 cursor-not-allowed'
+                      }`}
+                  >
+                    {!checkOutDisabled && (
+                      <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                    )}
+                    {!checkOutDisabled && (
+                      <span className="absolute top-2 right-2 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+                      </span>
+                    )}
+                    <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-0.5 ${
+                      !checkOutDisabled ? 'bg-black/15' : 'bg-slate-800/50'
+                    }`}>
+                      <LogOut className={`w-5 h-5 sm:w-6 sm:h-6 ${loading && !checkOutDisabled ? 'animate-spin' : ''} ${!checkOutDisabled ? 'text-slate-950' : 'text-slate-600'}`} />
+                    </div>
+                    <span className="text-sm sm:text-base font-extrabold tracking-wide">Absen Pulang</span>
+                    <span className={`text-[10px] sm:text-[11px] font-normal ${!checkOutDisabled ? 'text-amber-900' : 'text-slate-600'}`}>
+                      {!checkOutDisabled ? 'Alhamdulillah • Selesai' : 'Belum Tersedia'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ── PETA LOKASI (Collapsible di mobile) ── */}
+            <div className="glass-card rounded-2xl overflow-hidden border border-amber-500/20">
+              <button
+                onClick={() => setMapExpanded(!mapExpanded)}
+                className="w-full px-4 py-3 border-b border-amber-500/15 bg-islamic-950/60 flex items-center justify-between"
               >
-                <div className="flex-shrink-0">
-                  {getNotificationIcon(activeNotification.type)}
+                <h2 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-amber-400" />
+                  Peta Lokasi Presensi
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold ml-1">
+                    Radius {officeLocation.radius}m
+                  </span>
+                </h2>
+                <span className="lg:hidden text-slate-400">
+                  {mapExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </span>
+              </button>
+
+              {/* Di mobile: collapsed by default; di desktop: selalu tampil */}
+              <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                mapExpanded ? 'max-h-[500px]' : 'max-h-0 lg:max-h-[500px]'
+              }`}>
+                <div className="p-3 space-y-2">
+                  <LocationMap currentLocation={currentLocation} officeLocation={officeLocation} />
+                  <LocationStatus
+                    currentLocation={currentLocation}
+                    isWithinOfficeRadius={isWithinOfficeRadius}
+                    locationError={locationError}
+                    officeDistance={officeDistance}
+                  />
                 </div>
-                <div className="ml-3 flex-1">
-                  <p className="text-sm md:text-base font-medium leading-5">{activeNotification.message}</p>
-                </div>
-                <button 
-                  onClick={removeNotification} 
-                  className={`ml-auto flex-shrink-0 hover:text-white focus:outline-none ${
-                    activeNotification.type === 'error' ? 'text-red-300' : 
-                    activeNotification.type === 'success' ? 'text-green-300' : 'text-blue-300'
-                  }`}
-                >
-                  <X className="h-5 w-5" />
-                </button>
               </div>
+
+              {!mapExpanded && (
+                <div className="lg:hidden px-4 py-2.5 flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+                  <MapPin className="w-3 h-3 text-amber-500" />
+                  Ketuk untuk melihat peta lokasi GPS
+                </div>
+              )}
             </div>
           </div>
-        )}
 
-        {/* Komponen utama: Peta lokasi */}
-        <div className="bg-gray-800 rounded-xl shadow-md overflow-hidden border border-gray-700 transform transition-all hover:shadow-lg">
-          <div className="bg-gradient-to-r from-blue-900 to-blue-800 px-4 sm:px-6 py-4">
-            <h2 className="text-xl font-semibold text-white flex items-center">
-              <span className="mr-2">📍</span> 
-              Lokasi Anda Saat Ini
-            </h2>
-          </div>
-          <div className="p-4 sm:p-6">
-            {/* Informasi Jadwal */}
-            <div className="mb-6 p-3 bg-gray-900/50 rounded-lg border border-gray-700/50">
-              <div className="flex items-center gap-2 text-gray-300 mb-2">
-                <Clock className="w-4 h-4" />
-                <span className="text-sm font-medium">Jadwal Hari Ini</span>
+          {/* ── KOLOM KANAN (Sidebar Desktop) ── */}
+          <div className="lg:col-span-1 space-y-3">
+            <TodayStatus attendance={attendance} />
+
+            {scheduleTime && (
+              <div className="glass-card rounded-2xl p-4 border border-amber-500/20">
+                <h3 className="text-xs font-bold text-amber-300 mb-3 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />Jadwal Kerja Hari Ini
+                </h3>
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-slate-400"><Sun className="w-3.5 h-3.5 text-amber-400" />Jam Masuk</div>
+                    <span className="font-bold text-amber-200">{scheduleTime.check_in_start.slice(0,5)} – {scheduleTime.check_in_end.slice(0,5)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-slate-400"><Moon className="w-3.5 h-3.5 text-emerald-400" />Jam Pulang</div>
+                    <span className="font-bold text-emerald-200">{scheduleTime.check_out_start.slice(0,5)} – {scheduleTime.check_out_end.slice(0,5)}</span>
+                  </div>
+                </div>
               </div>
-              <ScheduleInfo schedule={scheduleTime} />
-            </div>
+            )}
 
-            {/* Komponen peta lokasi pengguna */}
-            <LocationMap 
-              currentLocation={currentLocation} 
-              officeLocation={officeLocation}
-            />
-            <div className="mt-4">
-              {/* Komponen status lokasi */}
-              <LocationStatus
-                currentLocation={currentLocation}
-                isWithinOfficeRadius={isWithinOfficeRadius}
-                locationError={locationError}
-                officeDistance={officeDistance}
-              />
-            </div>
-            <div className="mt-4">
-              {/* Komponen tombol absensi */}
-              <AttendanceButtons
-                canCheckIn={isWithinCheckInTime()}
-                canCheckOut={canCheckOut()}
-                handleCheckIn={handleCheckIn}
-                handleCheckOut={handleCheckOut}
-                loading={loading}
-                isWithinOfficeRadius={isWithinOfficeRadius}
-                isWithinCheckInTime={isWithinCheckInTime}
-                isWithinCheckOutTime={isWithinCheckOutTime}
-                currentLocation={currentLocation}
-                scheduleTime={scheduleTime || undefined}
-                hasCheckedInToday={hasCheckedInToday()}
-              />
+            <div className="glass-card rounded-2xl p-4 border border-amber-500/20">
+              <h3 className="text-xs font-bold text-amber-300 mb-2.5 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />Tata Cara Presensi
+              </h3>
+              <ul className="space-y-2 text-[11px] text-slate-300 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 font-bold shrink-0">①</span>
+                  <span>Aktifkan GPS dengan mode <strong>Akurasi Tinggi</strong>.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 font-bold shrink-0">②</span>
+                  <span>Pastikan dalam radius <strong className="text-amber-300">{officeLocation.radius}m</strong> dari kantor.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-400 font-bold shrink-0">③</span>
+                  <span>Tekan <strong>Absen Masuk</strong> dan <strong>Absen Pulang</strong>.</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
-
-        {/* Komponen status absensi hari ini */}
-        <div className="mt-6">
-          <TodayStatus attendance={attendance} />
-        </div>
-        
-        {/* Style untuk animasi notifikasi */}
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            @keyframes fadeIn {
-              from {
-                opacity: 0;
-                transform: scale(0.95);
-              }
-              to {
-                opacity: 1;
-                transform: scale(1);
-              }
-            }
-            
-            @keyframes fadeOut {
-              from {
-                opacity: 1;
-                transform: scale(1);
-              }
-              to {
-                opacity: 0;
-                transform: scale(0.95);
-              }
-            }
-          `
-        }} />
       </div>
     </UserLayout>
   );

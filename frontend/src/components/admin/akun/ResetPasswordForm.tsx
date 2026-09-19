@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Key, User, Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
+import { KeyRound, User, Lock, Eye, EyeOff, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 import { api } from '../../../services/api';
 
-// Add Notification interface
 interface Notification {
   type: 'success' | 'error';
   message: string;
@@ -29,12 +28,11 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [notification, setNotification] = useState<Notification | null>(null);
 
-  // Auto hide notification after 3 seconds
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 3000);
+      }, 4000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -43,10 +41,18 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
     e.preventDefault();
     
     try {
+      if (!resetPasswordData.username) {
+        setNotification({
+          type: 'error',
+          message: 'Silakan pilih nama pengguna akun pegawai terlebih dahulu.'
+        });
+        return;
+      }
+
       if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
         setNotification({
           type: 'error',
-          message: 'Password baru dan konfirmasi tidak sama'
+          message: 'Konfirmasi kata sandi tidak cocok dengan kata sandi baru.'
         });
         return;
       }
@@ -54,24 +60,21 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
       if (resetPasswordData.newPassword.length < 6) {
         setNotification({
           type: 'error',
-          message: 'Password minimal 6 karakter'
+          message: 'Kata sandi baru minimal 6 karakter.'
         });
         return;
       }
 
-      // Reset password
       await api.auth.resetPassword(
         resetPasswordData.username,
         resetPasswordData.newPassword
       );
 
-      // Show success notification
       setNotification({
         type: 'success',
-        message: `Password untuk ${resetPasswordData.username} berhasil direset`
+        message: `Alhamdulillah! Kata sandi untuk akun @${resetPasswordData.username} berhasil direset.`
       });
 
-      // Reset form
       setResetPasswordData({
         username: '',
         newPassword: '',
@@ -79,161 +82,148 @@ export const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
       });
 
     } catch (err: any) {
-      console.error('Error:', err);
       setNotification({
         type: 'error',
-        message: err.message || 'Gagal mereset password'
+        message: err.message || 'Gagal mereset kata sandi pegawai'
       });
     }
   };
 
   return (
-    <>
-      <div className="bg-gray-800/50 rounded-lg border border-gray-700/50 overflow-hidden hover:border-red-500/30 transition-colors duration-300">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-700/50 flex items-center bg-gray-900/50">
-          <Key className="w-5 h-5 text-red-500 mr-2" />
-          <h2 className="text-lg font-medium text-gray-100">Reset Password</h2>
+    <div className="rounded-2xl glass-card overflow-hidden border border-amber-500/20 hover:border-amber-500/40 transition-all duration-300">
+      <div className="px-5 py-4 border-b border-amber-500/15 bg-islamic-950/60 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/35 flex items-center justify-center text-amber-300">
+            <KeyRound className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white tracking-wide">Pemulihan Kata Sandi</h2>
+            <p className="text-[11px] text-slate-300">Ganti kata sandi pegawai yang lupa atau terkendala login</p>
+          </div>
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="p-3 sm:p-6 space-y-3 sm:space-y-4">
-          {/* Username Select */}
-          <div className="relative group">
+      <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+        {/* Pilih User */}
+        <div>
+          <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+            Pilih Akun Pegawai
+          </label>
+          <div className="relative">
+            <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <select
               value={resetPasswordData.username}
               onChange={(e) => {
                 setResetPasswordData({ ...resetPasswordData, username: e.target.value });
                 setNotification(null);
               }}
-              className="w-full h-11 px-11 bg-gray-900/50 border border-gray-700/50 rounded-lg 
-                        text-gray-200 appearance-none cursor-pointer focus:border-red-500/50 
-                        focus:ring-1 focus:ring-red-500/20 group-hover:border-red-500/30 
-                        transition-all duration-200"
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all"
               required
             >
-              <option value="" disabled>Pilih username</option>
-              {userList.map((username) => (
-                <option key={username} value={username}>{username}</option>
+              <option value="" disabled>-- Pilih Nama Pengguna (Username) --</option>
+              {userList.map((uname) => (
+                <option key={uname} value={uname} className="bg-islamic-950 text-slate-200">@{uname}</option>
               ))}
             </select>
-            <User className="w-5 h-5 text-gray-500 absolute left-3 top-3 group-hover:text-red-500 transition-colors duration-200" />
           </div>
+        </div>
 
-          {/* New Password Input */}
-          <div className="relative group">
+        {/* Password Baru */}
+        <div>
+          <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+            Kata Sandi Baru
+          </label>
+          <div className="relative">
+            <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
-              type={showNewPassword ? "text" : "password"}
+              type={showNewPassword ? 'text' : 'password'}
               value={resetPasswordData.newPassword}
               onChange={(e) => {
                 setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value });
                 setNotification(null);
               }}
-              className="w-full h-11 px-11 bg-gray-900/50 border border-gray-700/50 rounded-lg 
-                        text-gray-200 placeholder-gray-500/50 focus:border-red-500/50 
-                        focus:ring-1 focus:ring-red-500/20 group-hover:border-red-500/30 
-                        transition-all duration-200"
-              placeholder="Password Baru"
+              className="w-full pl-10 pr-11 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all font-mono"
+              placeholder="Minimal 6 karakter..."
               required
               minLength={6}
             />
-            <Lock className="w-5 h-5 text-gray-500 absolute left-3 top-3 group-hover:text-red-500 transition-colors duration-200" />
             <button
               type="button"
               onClick={() => setShowNewPassword(!showNewPassword)}
-              className="absolute right-3 top-3 text-gray-500"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-300"
             >
-              {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+        </div>
 
-          {/* Confirm Password Input */}
-          <div className="relative group">
+        {/* Konfirmasi Password Baru */}
+        <div>
+          <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+            Ulangi Kata Sandi Baru
+          </label>
+          <div className="relative">
+            <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
-              type={showConfirmPassword ? "text" : "password"}
+              type={showConfirmPassword ? 'text' : 'password'}
               value={resetPasswordData.confirmPassword}
               onChange={(e) => {
                 setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value });
                 setNotification(null);
               }}
-              className="w-full h-11 px-11 bg-gray-900/50 border border-gray-700/50 rounded-lg 
-                        text-gray-200 placeholder-gray-500/50 focus:border-red-500/50 
-                        focus:ring-1 focus:ring-red-500/20 group-hover:border-red-500/30 
-                        transition-all duration-200"
-              placeholder="Konfirmasi Password"
+              className="w-full pl-10 pr-11 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all font-mono"
+              placeholder="Konfirmasi kata sandi..."
               required
               minLength={6}
             />
-            <Lock className="w-5 h-5 text-gray-500 absolute left-3 top-3 group-hover:text-red-500 transition-colors duration-200" />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-3 text-gray-500"
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-300"
             >
-              {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
+        </div>
 
-          {/* Submit Button */}
+        {/* Notifikasi */}
+        {notification && (
+          <div className={`p-3.5 rounded-xl text-xs sm:text-sm flex items-center gap-3 animate-fade-in ${
+            notification.type === 'success'
+              ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-200'
+              : 'bg-rose-950/80 border border-rose-500/40 text-rose-200'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+        )}
+
+        {/* Tombol Simpan */}
+        <div className="pt-2">
           <button
             type="submit"
-            disabled={loading || !!(notification && notification.type === 'success')}
-            className="w-full h-12 sm:h-11 bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:hover:bg-red-500
-                     text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center"
+            disabled={loading}
+            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-slate-950 bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-500 hover:from-amber-300 hover:to-yellow-400 shadow-md shadow-amber-950/60 active:scale-95 transition-all disabled:opacity-50"
           >
             {loading ? (
               <>
-                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Memproses...
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Mereset Kata Sandi...</span>
               </>
             ) : (
               <>
-                <Key className="w-5 h-5 mr-2" />
-                Reset Password
+                <KeyRound className="w-4 h-4 text-slate-950" />
+                <span>Perbarui Kata Sandi Akun</span>
               </>
             )}
           </button>
-        </form>    
-      </div>
-
-      {/* Notification */}
-      {notification && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-          <div 
-            className={`flex items-center gap-4 px-8 py-4 rounded-2xl shadow-2xl
-              transform transition-all duration-500 animate-fade-up backdrop-blur-sm
-              ${notification.type === 'success' 
-                ? 'bg-gray-800/90 border-2 border-green-500/30' 
-                : 'bg-gray-800/90 border-2 border-red-500/30'}`}
-          >
-            <div 
-              className={`w-12 h-12 rounded-xl flex items-center justify-center
-                transition-all duration-500 animate-bounce-small
-                ${notification.type === 'success' 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : 'bg-red-500/20 text-red-400'}`}
-            >
-              {notification.type === 'success' ? (
-                <CheckCircle className="w-6 h-6" />
-              ) : (
-                <XCircle className="w-6 h-6" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className={`text-sm font-semibold mb-0.5
-                ${notification.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
-              >
-                {notification.type === 'success' ? 'Berhasil' : 'Gagal'}
-              </span>
-              <span className="text-gray-300 font-medium">
-                {notification.message}
-              </span>
-            </div>
-          </div>
         </div>
-      )}
-    </>
+      </form>
+    </div>
   );
 };
 

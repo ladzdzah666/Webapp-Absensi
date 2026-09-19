@@ -44,9 +44,30 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="/admin/location-settings" element={<LocationSettings />} />
-        <Route path="/admin/account-creation" element={<AccountCreation />} />
-        <Route path="/admin/schedule-settings" element={<ScheduleSettings />} />
+        <Route
+          path="/admin/location-settings"
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <LocationSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/account-creation"
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <AccountCreation />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/schedule-settings"
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <ScheduleSettings />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/login" />} />
       </Routes>
     </BrowserRouter>

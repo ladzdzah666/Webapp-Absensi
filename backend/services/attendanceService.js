@@ -11,9 +11,25 @@ class AttendanceService {
     return await AttendanceModel.getAll();
   }
 
+  static getLocalDateString() {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  static getLocalTimeString() {
+    const d = new Date();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    return `${hours}:${minutes}:${seconds}`;
+  }
+
   static async checkIn(userId, latitude, longitude) {
-    // Check if already checked in today
-    const today = new Date().toISOString().split('T')[0];
+    // Check if already checked in today (menggunakan tanggal lokal)
+    const today = this.getLocalDateString();
     const existingAttendance = await AttendanceModel.findByUserAndDate(userId, today);
     
     if (existingAttendance) {
@@ -31,7 +47,7 @@ class AttendanceService {
 
     const distance = this.calculateDistance(
       { latitude, longitude },
-      { latitude: officeLocation.lat, longitude: officeLocation.lng }
+      { latitude: Number(officeLocation.lat), longitude: Number(officeLocation.lng) }
     );
 
     if (distance > officeLocation.radius) {
@@ -44,20 +60,19 @@ class AttendanceService {
       throw new Error('Jadwal absensi belum diatur oleh admin');
     }
 
-    const now = new Date();
-    const currentTime = now.toTimeString().split(' ')[0];
+    const currentTime = this.getLocalTimeString();
     
     if (currentTime < schedule.check_in_start || currentTime > schedule.check_in_end) {
       throw new Error(`Waktu absen masuk hanya diperbolehkan antara ${schedule.check_in_start.slice(0, 5)} - ${schedule.check_in_end.slice(0, 5)}`);
     }
 
-    const status = currentTime > schedule.check_in_start ? 'late' : 'present';
+    const status = 'present';
     return await AttendanceModel.create(userId, latitude, longitude, status);
   }
 
   static async checkOut(userId, latitude, longitude) {
-    // Check if has checked in today
-    const today = new Date().toISOString().split('T')[0];
+    // Check if has checked in today (menggunakan tanggal lokal)
+    const today = this.getLocalDateString();
     const existingAttendance = await AttendanceModel.findByUserAndDate(userId, today);
     
     if (!existingAttendance) {
@@ -76,7 +91,7 @@ class AttendanceService {
 
     const distance = this.calculateDistance(
       { latitude, longitude },
-      { latitude: officeLocation.lat, longitude: officeLocation.lng }
+      { latitude: Number(officeLocation.lat), longitude: Number(officeLocation.lng) }
     );
 
     if (distance > officeLocation.radius) {
@@ -89,7 +104,7 @@ class AttendanceService {
       throw new Error('Jadwal absensi belum diatur oleh admin');
     }
 
-    const currentTime = new Date().toTimeString().split(' ')[0];
+    const currentTime = this.getLocalTimeString();
     
     if (currentTime < schedule.check_out_start || currentTime > schedule.check_out_end) {
       throw new Error(`Waktu absen keluar hanya diperbolehkan antara ${schedule.check_out_start.slice(0, 5)} - ${schedule.check_out_end.slice(0, 5)}`);

@@ -1,9 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { UserPlus, User, Lock, BadgeCheck, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserPlus, User, Lock, BadgeCheck, Eye, EyeOff, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
 
-/**
- * Interface untuk props komponen Form Pembuatan Akun
- */
 interface CreateAccountFormProps {
   newUser: {
     username: string;
@@ -21,26 +18,6 @@ interface Notification {
   message: string;
 }
 
-/**
- * Komponen Form Pembuatan Akun
- * 
- * Fitur-fitur:
- * 1. Form input data akun:
- *    - Nama lengkap
- *    - Username
- *    - Role (user/admin)
- *    - Password dengan toggle show/hide
- * 2. Validasi form:
- *    - Semua field wajib diisi
- *    - Password minimal 6 karakter
- * 3. Konfirmasi password admin:
- *    - Modal konfirmasi sebelum membuat akun
- *    - Verifikasi password admin
- * 4. Handling response:
- *    - Loading state saat proses
- *    - Notifikasi sukses/error
- *    - Reset form setelah berhasil
- */
 const CreateAccountForm: React.FC<CreateAccountFormProps> = ({
   newUser,
   setNewUser,
@@ -49,14 +26,13 @@ const CreateAccountForm: React.FC<CreateAccountFormProps> = ({
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [notification, setNotification] = useState<Notification | null>(null);
-  const formRef = React.useRef<HTMLFormElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  // Auto hide notification after 3 seconds
   useEffect(() => {
     if (notification) {
       const timer = setTimeout(() => {
         setNotification(null);
-      }, 3000);
+      }, 4000);
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -67,7 +43,7 @@ const CreateAccountForm: React.FC<CreateAccountFormProps> = ({
     if (!newUser.full_name || !newUser.username || !newUser.password || newUser.password.length < 6) {
       setNotification({
         type: 'error',
-        message: 'Silakan lengkapi semua field dengan benar'
+        message: 'Mohon lengkapi semua kolom dengan benar (Kata sandi minimal 6 karakter).'
       });
       return;
     }
@@ -76,163 +52,150 @@ const CreateAccountForm: React.FC<CreateAccountFormProps> = ({
       await handleCreateUser(e);
       setNotification({
         type: 'success',
-        message: `Akun ${newUser.username} berhasil dibuat`
+        message: `Alhamdulillah! Akun "${newUser.username}" berhasil didaftarkan.`
       });
     } catch (err: any) {
-      console.error('Error:', err);
       setNotification({
         type: 'error',
-        message: err.message || 'Gagal menambahkan user'
+        message: err.message || 'Gagal menambahkan akun baru'
       });
     }
   };
 
   return (
-    <>
-      <div className="bg-gray-800/50 rounded-lg border border-gray-700/50 overflow-hidden hover:border-blue-500/30 transition-colors duration-300">
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-700/50 flex items-center bg-gray-900/50">
-          <UserPlus className="w-5 h-5 text-blue-500 mr-2" />
-          <h2 className="text-lg font-medium text-gray-100">Pembuatan Akun</h2>
+    <div className="rounded-2xl glass-card overflow-hidden border border-amber-500/20 hover:border-amber-500/40 transition-all duration-300">
+      <div className="px-5 py-4 border-b border-amber-500/15 bg-islamic-950/60 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/35 flex items-center justify-center text-emerald-300">
+            <UserPlus className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white tracking-wide">Pendaftaran Akun Pegawai Baru</h2>
+            <p className="text-[11px] text-slate-300">Tambahkan akun pengguna untuk pegawai atau admin</p>
+          </div>
+        </div>
+      </div>
+
+      <form ref={formRef} onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
+        {/* Nama Lengkap */}
+        <div>
+          <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+            Nama Lengkap Pegawai
+          </label>
+          <div className="relative">
+            <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={newUser.full_name}
+              onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all"
+              placeholder="Contoh: Ahmad Fadilah"
+              required
+            />
+          </div>
         </div>
 
-        <form ref={formRef} onSubmit={handleSubmit} className="p-3 sm:p-6 space-y-3 sm:space-y-4">
-          <div className="space-y-3 sm:space-y-4">
-            <div className="relative group">
-              <input
-                type="text"
-                value={newUser.full_name}
-                onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
-                className="w-full h-11 px-11 bg-gray-900/50 border border-gray-700/50 rounded-lg 
-                          text-gray-200 placeholder-gray-500/50 focus:border-blue-500/50 
-                          focus:ring-1 focus:ring-blue-500/20 group-hover:border-blue-500/30 
-                          transition-all duration-200"
-                placeholder="Nama Lengkap"
-                required
-              />
-              <User className="w-5 h-5 text-gray-500 absolute left-3 top-3 group-hover:text-blue-500 transition-colors duration-200" />
-            </div>
-
-            <div className="relative group">
-              <input
-                type="text"
-                value={newUser.username}
-                onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
-                className="w-full h-11 px-11 bg-gray-900/50 border border-gray-700/50 rounded-lg 
-                          text-gray-200 placeholder-gray-500/50 focus:border-blue-500/50 
-                          focus:ring-1 focus:ring-blue-500/20 group-hover:border-blue-500/30 
-                          transition-all duration-200"
-                placeholder="Username"
-                required
-              />
-              <User className="w-5 h-5 text-gray-500 absolute left-3 top-3 group-hover:text-blue-500 transition-colors duration-200" />
-            </div>
-
-            <div className="relative group">
-              <select
-                value={newUser.role}
-                onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                className="w-full h-11 px-11 bg-gray-900/50 border border-gray-700/50 rounded-lg 
-                          text-gray-200 appearance-none cursor-pointer focus:border-blue-500/50 
-                          focus:ring-1 focus:ring-blue-500/20 group-hover:border-blue-500/30 
-                          transition-all duration-200"
-                required
-              >
-                <option value="user" className="bg-gray-900">User</option>
-                <option value="admin" className="bg-gray-900">Admin</option>
-              </select>
-              <BadgeCheck className="w-5 h-5 text-gray-500 absolute left-3 top-3 group-hover:text-blue-500 transition-colors duration-200" />
-            </div>
-
-            <div className="relative group">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={newUser.password}
-                onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                className="w-full h-11 px-11 bg-gray-900/50 border border-gray-700/50 rounded-lg 
-                          text-gray-200 placeholder-gray-500/50 focus:border-blue-500/50 
-                          focus:ring-1 focus:ring-blue-500/20 group-hover:border-blue-500/30 
-                          transition-all duration-200"
-                placeholder="Password (min. 6 karakter)"
-                required
-                minLength={6}
-              />
-              <Lock className="w-5 h-5 text-gray-500 absolute left-3 top-3 group-hover:text-blue-500 transition-colors duration-200" />
-              
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-gray-500 hover:text-blue-500 transition-colors duration-200 focus:outline-none"
-              >
-                {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
-              </button>
-            </div>
+        {/* Username */}
+        <div>
+          <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+            Nama Pengguna (Username)
+          </label>
+          <div className="relative">
+            <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={newUser.username}
+              onChange={(e) => setNewUser({ ...newUser, username: e.target.value.toLowerCase().replace(/\s+/g, '') })}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all font-mono"
+              placeholder="ahmad_f"
+              required
+            />
           </div>
+        </div>
 
+        {/* Peran Akses */}
+        <div>
+          <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+            Peran Akses (Role)
+          </label>
+          <div className="relative">
+            <BadgeCheck className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <select
+              value={newUser.role}
+              onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+              className="w-full pl-10 pr-4 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all"
+              required
+            >
+              <option value="user">Pegawai (Pengguna Presensi)</option>
+              <option value="admin">Administrator Sistem</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Password */}
+        <div>
+          <label className="block text-xs font-semibold text-amber-200 uppercase tracking-wider mb-2">
+            Kata Sandi
+          </label>
+          <div className="relative">
+            <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={newUser.password}
+              onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+              className="w-full pl-10 pr-11 py-2.5 rounded-xl glass-input text-sm focus:outline-none focus:border-amber-500 transition-all font-mono"
+              placeholder="Minimal 6 karakter..."
+              required
+              minLength={6}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-300"
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Notifikasi */}
+        {notification && (
+          <div className={`p-3.5 rounded-xl text-xs sm:text-sm flex items-center gap-3 animate-fade-in ${
+            notification.type === 'success'
+              ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-200'
+              : 'bg-rose-950/80 border border-rose-500/40 text-rose-200'
+          }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+            ) : (
+              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+            )}
+            <span>{notification.message}</span>
+          </div>
+        )}
+
+        {/* Tombol Simpan */}
+        <div className="pt-2">
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-11 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:hover:bg-blue-500
-                     text-white rounded-lg font-medium transition-colors duration-200 flex items-center justify-center"
+            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-950/60 border border-amber-400/40 active:scale-95 transition-all disabled:opacity-50"
           >
             {loading ? (
               <>
-                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Memproses...
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Memproses Pendaftaran...</span>
               </>
             ) : (
               <>
-                <UserPlus className="w-5 h-5 mr-2" />
-                Buat Akun
+                <UserPlus className="w-4 h-4 text-amber-300" />
+                <span>Daftarkan Akun Baru</span>
               </>
             )}
           </button>
-        </form>
-      </div>
-
-      {/* Notification */}
-      {notification && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-          <div 
-            className={`flex items-center gap-4 px-8 py-4 rounded-2xl shadow-2xl
-              transform transition-all duration-500 animate-fade-up backdrop-blur-sm
-              ${notification.type === 'success' 
-                ? 'bg-gray-800/90 border-2 border-green-500/30' 
-                : 'bg-gray-800/90 border-2 border-red-500/30'}`}
-          >
-            <div 
-              className={`w-12 h-12 rounded-xl flex items-center justify-center
-                transition-all duration-500 animate-bounce-small
-                ${notification.type === 'success' 
-                  ? 'bg-green-500/20 text-green-400' 
-                  : 'bg-red-500/20 text-red-400'}`}
-            >
-              {notification.type === 'success' ? (
-                <CheckCircle className="w-6 h-6" />
-              ) : (
-                <XCircle className="w-6 h-6" />
-              )}
-            </div>
-            <div className="flex flex-col">
-              <span className={`text-sm font-semibold mb-0.5
-                ${notification.type === 'success' ? 'text-green-400' : 'text-red-400'}`}
-              >
-                {notification.type === 'success' ? 'Berhasil' : 'Gagal'}
-              </span>
-              <span className="text-gray-300 font-medium">
-                {notification.message}
-              </span>
-            </div>
-          </div>
         </div>
-      )}
-    </>
+      </form>
+    </div>
   );
 };
 

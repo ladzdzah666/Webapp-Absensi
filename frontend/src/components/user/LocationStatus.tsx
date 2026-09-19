@@ -1,96 +1,102 @@
 import React, { useState, useEffect } from 'react';
-import { MapPin, Clock, AlertTriangle } from 'lucide-react';
+import { MapPin, Navigation, AlertTriangle, CheckCircle2, Radio } from 'lucide-react';
 
-/**
- * Interface untuk properti komponen status lokasi
- */
 interface LocationStatusProps {
-  currentLocation: GeolocationPosition | null;  // Data lokasi pengguna saat ini
-  isWithinOfficeRadius: () => boolean;          // Fungsi untuk memeriksa apakah berada dalam radius kantor
-  locationError?: GeolocationPositionError | null;  // Error lokasi (jika ada)
-  officeDistance?: number | null;               // Jarak ke kantor dalam meter
+  currentLocation: GeolocationPosition | null;
+  isWithinOfficeRadius: () => boolean;
+  locationError?: GeolocationPositionError | null;
+  officeDistance?: number | null;
 }
 
-/**
- * Komponen untuk menampilkan status lokasi pengguna 
- * dan waktu saat ini
- */
 const LocationStatus: React.FC<LocationStatusProps> = ({
   currentLocation,
   isWithinOfficeRadius,
   locationError = null,
   officeDistance = null,
 }) => {
-  // State untuk waktu saat ini
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [accuracy, setAccuracy] = useState<number | null>(null);
 
-  // Memperbarui waktu setiap detik
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    // Membersihkan interval saat komponen tidak lagi dirender
-    return () => clearInterval(timer);
-  }, []);
-
-  /**
-   * Mendapatkan status lokasi dalam bentuk pesan
-   */
-  const getLocationStatus = () => {
-    if (locationError) {
-      return `Error: ${locationError.message}`;
+    if (currentLocation?.coords?.accuracy) {
+      setAccuracy(Math.round(currentLocation.coords.accuracy));
     }
-    
-    if (!currentLocation) return 'Mendeteksi lokasi...';
-    
-    if (isWithinOfficeRadius()) {
-      return 'Di dalam area kantor';
-    } else {
-      if (officeDistance) {
-        const distanceKm = (officeDistance / 1000).toFixed(2);
-        return `Di luar area (${distanceKm} km)`;
-      }
-      return 'Di luar area kantor';
-    }
-  };
+  }, [currentLocation]);
 
-  /**
-   * Mendapatkan warna teks berdasarkan status lokasi
-   */
-  const getStatusColor = () => {
-    if (locationError) return 'text-yellow-400';
-    if (!currentLocation) return 'text-gray-400 animate-pulse';
-    return isWithinOfficeRadius() ? 'text-green-400' : 'text-red-400';
-  };
-
-  /**
-   * Mendapatkan ikon yang sesuai dengan status lokasi
-   */
-  const getStatusIcon = () => {
-    if (locationError) {
-      return <AlertTriangle className={`w-4 h-4 mr-1.5 ${getStatusColor()}`} />;
-    }
-    return <MapPin className={`w-4 h-4 mr-1.5 ${getStatusColor()}`} />;
-  };
+  const isInside = isWithinOfficeRadius();
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 p-2 sm:p-3 bg-gray-800/60 rounded-lg">
-      {/* Status Lokasi */}
-      <div className="flex items-center">
-        {getStatusIcon()}
-        <span className="text-xs sm:text-sm text-gray-300">{getLocationStatus()}</span>
+    <div className="glass-panel p-2.5 sm:p-3 rounded-2xl border border-amber-500/20 flex flex-wrap items-center justify-between gap-2">
+      {/* Status & Jarak */}
+      <div className="flex items-center gap-2.5">
+        <div className={`w-8 h-8 rounded-xl border flex items-center justify-center flex-shrink-0 ${
+          locationError
+            ? 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+            : !currentLocation
+            ? 'bg-slate-800/80 border-slate-700 text-slate-400 animate-pulse'
+            : isInside
+            ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-300 shadow-glow-emerald'
+            : 'bg-rose-500/20 border-rose-400/40 text-rose-300'
+        }`}>
+          {locationError ? (
+            <AlertTriangle className="w-4 h-4" />
+          ) : isInside ? (
+            <CheckCircle2 className="w-4 h-4" />
+          ) : (
+            <MapPin className="w-4 h-4" />
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 leading-tight">
+            <span>
+              {locationError
+                ? `GPS: ${locationError.message}`
+                : !currentLocation
+                ? 'Mencari sinyal koordinat GPS...'
+                : isInside
+                ? 'Dalam Area Radius Kantor'
+                : 'Di Luar Area Kantor'}
+            </span>
+            {currentLocation && (
+              <span className={`w-2 h-2 rounded-full inline-block ${
+                isInside ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
+              }`} />
+            )}
+          </p>
+
+          <p className="text-[11px] text-slate-300 flex items-center gap-2 mt-0.5">
+            {officeDistance !== null && (
+              <span>
+                Jarak:{' '}
+                <strong className={isInside ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
+                  {officeDistance > 1000
+                    ? `${(officeDistance / 1000).toFixed(2)} km`
+                    : `${Math.round(officeDistance)} meter`}
+                </strong>
+              </span>
+            )}
+            {accuracy !== null && (
+              <>
+                <span className="text-slate-600">•</span>
+                <span className="flex items-center gap-1 text-amber-300/90">
+                  <Radio className="w-3 h-3 text-amber-400" />
+                  Akurasi: ~{accuracy}m
+                </span>
+              </>
+            )}
+          </p>
+        </div>
       </div>
 
-      {/* Tampilan Jam Waktu-Nyata */}
-      <div className="flex items-center text-gray-300">
-        <Clock className="w-4 h-4 mr-1.5 text-blue-400" />
-        <span className="text-xs sm:text-sm font-medium tabular-nums">
-          {currentTime.toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
-          })}
+      {/* Indikator Status GPS */}
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className={`px-2 py-0.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1 ${
+          isInside 
+            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+            : 'bg-amber-500/15 border-amber-500/30 text-amber-300'
+        }`}>
+          <Navigation className="w-2.5 h-2.5 rotate-45" />
+          <span>{isInside ? 'Siap Presensi' : 'Dekati Kantor'}</span>
         </span>
       </div>
     </div>

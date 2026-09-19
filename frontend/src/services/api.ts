@@ -1,7 +1,7 @@
 import { Attendance, User, OfficeLocation, AttendanceSchedule } from '../types';
 
 // Update the base URL to use port 5000 which is the default backend port
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) || 'http://localhost:5000/api';
 
 const getAuthHeaders = () => ({
   'Content-Type': 'application/json',
