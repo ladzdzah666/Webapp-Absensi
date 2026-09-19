@@ -28,6 +28,13 @@ class AttendanceService {
   }
 
   static async checkIn(userId, latitude, longitude) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      throw new Error('Koordinat GPS tidak valid');
+    }
+
     // Check if already checked in today (menggunakan tanggal lokal)
     const today = this.getLocalDateString();
     const existingAttendance = await AttendanceModel.findByUserAndDate(userId, today);
@@ -46,7 +53,7 @@ class AttendanceService {
     }
 
     const distance = this.calculateDistance(
-      { latitude, longitude },
+      { latitude: lat, longitude: lng },
       { latitude: Number(officeLocation.lat), longitude: Number(officeLocation.lng) }
     );
 
@@ -67,10 +74,17 @@ class AttendanceService {
     }
 
     const status = 'present';
-    return await AttendanceModel.create(userId, latitude, longitude, status);
+    return await AttendanceModel.create(userId, lat, lng, status);
   }
 
   static async checkOut(userId, latitude, longitude) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      throw new Error('Koordinat GPS tidak valid');
+    }
+
     // Check if has checked in today (menggunakan tanggal lokal)
     const today = this.getLocalDateString();
     const existingAttendance = await AttendanceModel.findByUserAndDate(userId, today);
@@ -90,7 +104,7 @@ class AttendanceService {
     }
 
     const distance = this.calculateDistance(
-      { latitude, longitude },
+      { latitude: lat, longitude: lng },
       { latitude: Number(officeLocation.lat), longitude: Number(officeLocation.lng) }
     );
 
@@ -110,7 +124,7 @@ class AttendanceService {
       throw new Error(`Waktu absen keluar hanya diperbolehkan antara ${schedule.check_out_start.slice(0, 5)} - ${schedule.check_out_end.slice(0, 5)}`);
     }
 
-    const result = await AttendanceModel.updateCheckOut(userId, latitude, longitude);
+    const result = await AttendanceModel.updateCheckOut(userId, lat, lng);
     if (result === 0) {
       throw new Error('Tidak ada absensi masuk yang aktif');
     }

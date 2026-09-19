@@ -15,10 +15,28 @@ const userController = {
 
   createUser: async (req, res) => {
     try {
-      const result = await UserService.register(req.body);
+      const { username, password, full_name, role } = req.body;
+      if (!username || !password || !full_name) {
+        return res.status(400).json({ error: "Semua field wajib diisi" });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ error: "Password minimal 6 karakter" });
+      }
+      const validRole = role === 'admin' ? 'admin' : 'user';
+      const result = await UserService.register({
+        username: username.trim(),
+        password,
+        full_name: full_name.trim(),
+        role: validRole
+      });
       res.status(201).json({
         message: "User berhasil dibuat",
-        user: result.user
+        user: {
+          id: result.user.id,
+          username: result.user.username,
+          full_name: result.user.full_name,
+          role: result.user.role
+        }
       });
     } catch (error) {
       console.error("Error creating user:", error);

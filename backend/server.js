@@ -2,12 +2,18 @@ require("dotenv").config();
 const session = require("express-session");
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const morgan = require("morgan");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const attendanceRoutes = require("./routes/attendanceRoutes");
 
 const app = express();
+
+// Security HTTP headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
 
 // Middleware untuk logging
 app.use(morgan("dev"));
@@ -16,8 +22,12 @@ app.use(morgan("dev"));
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Izinkan request tanpa origin (seperti mobile app, curl, postman) atau dari localhost
-      if (!origin || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      // Izinkan request tanpa origin (seperti mobile app, curl, postman) atau dari localhost / LAN
+      if (
+        !origin || 
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+        /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/.test(origin)
+      ) {
         callback(null, true);
       } else {
         callback(null, true); // Dev-friendly fallback
