@@ -173,7 +173,7 @@ Koordinat kantor default di database: `-7.44675476, 109.24140416` (bisa diganti 
 
 | Login | Dashboard Pegawai | Dashboard Admin |
 |---|---|---|
-| ![Login](docs/login.png) | ![User](docs/user-dashboard.png) | ![Admin](docs/admin-dashboard.png) |
+| ![Login](<img width="457" height="816" alt="Login" src="https://github.com/user-attachments/assets/68cf0b8f-25a1-462a-9f08-19341f41ba15" />) | ![User](<img width="460" height="821" alt="Dashboard Pegawai" src="https://github.com/user-attachments/assets/d48536bd-7f56-4d17-8a64-b1b87b003442" />) | ![Admin](<img width="1193" height="866" alt="Dashboard Admin" src="https://github.com/user-attachments/assets/540b80ad-c446-4ee6-9171-868e9330b19a" />) |
 
 ---
 
